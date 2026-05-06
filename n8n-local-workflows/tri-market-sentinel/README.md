@@ -25,6 +25,12 @@ SCAN NEWS & DATA
 
 ## Workflows
 
+### Master View
+
+- `trivectorlabs.ai - Master Control Tower`
+
+This is the visual end-to-end canvas. It orchestrates the individual workflows with `Execute Workflow` nodes, so the full system can be viewed and tested from one place while each module remains editable on its own canvas.
+
 ### Market Collectors
 
 - `TrivectorLabs.ai - Crypto Intel Collector`

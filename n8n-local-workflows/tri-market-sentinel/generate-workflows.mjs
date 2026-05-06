@@ -748,6 +748,116 @@ function reportWorkflow() {
   });
 }
 
+function masterControlTowerWorkflow() {
+  const nodes = [
+    sticky(
+      'Control Tower Overview',
+      '# trivectorlabs.ai - Master Control Tower\\n\\nEnd-to-end visual map for the full trading intelligence system.\\n\\nThis workflow orchestrates the individual modules. Edit the module workflow itself when changing internal logic.',
+      [-920, -360],
+      [760, 280],
+      7,
+    ),
+    sticky(
+      'Phase 1 - Collect',
+      '# 1. Scan News & Market Data\\n\\nRuns crypto, stocks, and forex/macro collectors. Each collector normalizes raw market inputs into the shared event contract.',
+      [-500, -40],
+      [520, 220],
+      4,
+    ),
+    sticky(
+      'Phase 2 - Analyze',
+      '# 2. AI Analysis + Signal\\n\\nUnified scoring ranks sentiment, impact, confidence, and risk. Signal & Risk Gate turns high-quality events into controlled trade proposals.',
+      [380, -40],
+      [560, 220],
+      5,
+    ),
+    sticky(
+      'Phase 3 - Execute',
+      '# 3. Execute Trade\\n\\nMarket-specific execution modules handle paper/live routing, validation, confirmations, and broker/MT5 placeholders.',
+      [1280, -40],
+      [560, 220],
+      6,
+    ),
+    sticky(
+      'Phase 4 - Output',
+      '# 4. Alert + Report\\n\\nImportant events, trade proposals, execution confirmations, and daily briefs route to Discord/Telegram/Sheets or a future dashboard.',
+      [2160, -40],
+      [560, 220],
+      3,
+    ),
+    manual('Manual Full-System Test', [-920, 180]),
+    schedule('Every Hour Orchestration', [-920, 380], 60),
+    code(
+      'Build Run Context',
+      `return [{
+  json: {
+    run_id: \`trivector_${Date.now()}\`,
+    mode: $env.TRIVECTOR_EXECUTION_MODE ?? 'paper',
+    kill_switch: $env.TRIVECTOR_KILL_SWITCH ?? 'on',
+    started_at: new Date().toISOString(),
+    note: 'Master Control Tower orchestrates modules; edit individual workflows for internal logic.',
+  },
+}];`,
+      [-660, 280],
+    ),
+    executeWorkflow('Run Crypto Intel Collector', 'TriMarketCryptoCollector01', [-320, 80]),
+    executeWorkflow('Run Stocks Intel Collector', 'TriMarketStocksCollector01', [-320, 280]),
+    executeWorkflow('Run Forex Macro Intel Collector', 'TriMarketForexCollector01', [-320, 480]),
+    executeWorkflow('Unified Scoring Engine', 'TriMarketScoringEngine01', [480, 280]),
+    executeWorkflow('Signal & Risk Gate', 'TriVectorSignalRiskGate01', [840, 280]),
+    executeWorkflow('Crypto Execution Module', 'TriVectorCryptoExecution01', [1280, 80]),
+    executeWorkflow('Stocks Execution Module', 'TriVectorStocksExecution01', [1280, 280]),
+    executeWorkflow('Forex MT5 Execution Module', 'TriVectorForexMT5Execution01', [1280, 480]),
+    executeWorkflow('Alert Router', 'TriMarketAlertRouter01', [2100, 180]),
+    executeWorkflow('Daily Intelligence Report', 'TriMarketDailyReport01', [2100, 420]),
+    code(
+      'Control Tower Run Summary',
+      `return $input.all().map((item) => ({
+  json: {
+    ...item.json,
+    control_tower_status: 'completed_orchestrated_pass',
+    finished_at: new Date().toISOString(),
+  },
+}));`,
+      [2460, 300],
+    ),
+  ];
+
+  return workflow({
+    workflowId: 'TriVectorMasterControlTower01',
+    name: 'trivectorlabs.ai - Master Control Tower',
+    nodes,
+    connections: {
+      'Manual Full-System Test': { main: [[{ node: 'Build Run Context', type: 'main', index: 0 }]] },
+      'Every Hour Orchestration': { main: [[{ node: 'Build Run Context', type: 'main', index: 0 }]] },
+      'Build Run Context': {
+        main: [[
+          { node: 'Run Crypto Intel Collector', type: 'main', index: 0 },
+          { node: 'Run Stocks Intel Collector', type: 'main', index: 1 },
+          { node: 'Run Forex Macro Intel Collector', type: 'main', index: 2 },
+        ]],
+      },
+      'Run Crypto Intel Collector': { main: [[{ node: 'Unified Scoring Engine', type: 'main', index: 0 }]] },
+      'Run Stocks Intel Collector': { main: [[{ node: 'Unified Scoring Engine', type: 'main', index: 0 }]] },
+      'Run Forex Macro Intel Collector': { main: [[{ node: 'Unified Scoring Engine', type: 'main', index: 0 }]] },
+      'Unified Scoring Engine': { main: [[{ node: 'Signal & Risk Gate', type: 'main', index: 0 }]] },
+      'Signal & Risk Gate': {
+        main: [[
+          { node: 'Crypto Execution Module', type: 'main', index: 0 },
+          { node: 'Stocks Execution Module', type: 'main', index: 1 },
+          { node: 'Forex MT5 Execution Module', type: 'main', index: 2 },
+          { node: 'Alert Router', type: 'main', index: 3 },
+        ]],
+      },
+      'Crypto Execution Module': { main: [[{ node: 'Alert Router', type: 'main', index: 0 }]] },
+      'Stocks Execution Module': { main: [[{ node: 'Alert Router', type: 'main', index: 0 }]] },
+      'Forex MT5 Execution Module': { main: [[{ node: 'Alert Router', type: 'main', index: 0 }]] },
+      'Alert Router': { main: [[{ node: 'Control Tower Run Summary', type: 'main', index: 0 }]] },
+      'Daily Intelligence Report': { main: [[{ node: 'Control Tower Run Summary', type: 'main', index: 0 }]] },
+    },
+  });
+}
+
 const sharedEventTypes = [
   { type: 'regulation', keywords: ['sec', 'regulation', 'regulator', 'lawsuit', 'ban', 'approval'] },
   { type: 'etf', keywords: ['etf', 'spot etf', 'inflows', 'outflows'] },
@@ -759,6 +869,7 @@ const sharedEventTypes = [
 ];
 
 const workflows = [
+  ['master-control-tower.json', masterControlTowerWorkflow()],
   [
     'crypto-intel-collector.json',
     collectorWorkflow({

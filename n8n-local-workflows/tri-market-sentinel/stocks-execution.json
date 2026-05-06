@@ -1,0 +1,204 @@
+[
+  {
+    "id": "TriVectorStocksExecution01",
+    "name": "trivectorlabs.ai - Stocks Execution",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "591fae2d-88d0-48f9-84e2-06a928498dfe",
+        "name": "Execution Module",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -660,
+          -260
+        ],
+        "parameters": {
+          "color": 6,
+          "width": 620,
+          "height": 340,
+          "content": "# trivectorlabs.ai - Stocks Execution\\n\\nReceives a risk-approved trade proposal from the Signal & Risk Gate.\\n\\nDefault behavior is paper execution. Replace placeholder HTTP nodes with real Broker API API calls only after demo testing and risk review."
+        }
+      },
+      {
+        "id": "9bdbf552-a7ea-4ce8-b33c-3e72b3a1887f",
+        "name": "When Risk Gate Approves Trade",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -660,
+          120
+        ],
+        "parameters": {
+          "inputSource": "passthrough"
+        }
+      },
+      {
+        "id": "a98f4e17-b383-49f2-b797-133b01b712b2",
+        "name": "Validate execution request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -300,
+          120
+        ],
+        "parameters": {
+          "jsCode": "return $input.all().map((item) => {\n  const trade = item.json;\n  const errors = [];\n  if (trade.market !== 'stocks') errors.push('wrong_market');\n  if (!trade.execution_allowed) errors.push('execution_not_allowed');\n  if (!trade.order?.asset) errors.push('missing_asset');\n  if (!['buy', 'sell'].includes(trade.order?.side)) errors.push('invalid_side');\n  if (!trade.order?.stop_loss_required || !trade.order?.take_profit_required) errors.push('missing_required_risk_controls');\n  return { json: { ...trade, execution_validation: { passed: errors.length === 0, errors } } };\n});"
+        }
+      },
+      {
+        "id": "9edd48d2-ea28-4ffa-a0ac-70511f21d9e1",
+        "name": "Validation passed?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          20,
+          120
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "3dc067f9-f274-4466-bc00-012aebcae2bd",
+                "leftValue": "={{ $json.execution_validation.passed }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "1dbcc50e-d30d-439c-a5bb-f3d8b474bfc4",
+        "name": "Paper execution fill",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          360,
+          40
+        ],
+        "parameters": {
+          "jsCode": "return $input.all().map((item) => {\n  const trade = item.json;\n  return {\n    json: {\n      ...trade,\n      execution_result: {\n        status: trade.execution_mode === 'paper' ? 'paper_filled' : 'ready_for_live_api',\n        venue: 'Broker API',\n        endpoint: 'Alpaca / IBKR / Tradier order endpoint',\n        executed_at: new Date().toISOString(),\n        order_id: `paper_stocks_${Date.now()}`,\n        message: trade.execution_mode === 'paper'\n          ? 'Paper trade recorded. Replace this node with real broker/exchange execution after testing.'\n          : 'Live mode requested. Add real authenticated HTTP request node before enabling.',\n      },\n    },\n  };\n});"
+        }
+      },
+      {
+        "id": "031ee716-bb0c-4f28-8cff-2c9638cc534f",
+        "name": "Live API Placeholder",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          360,
+          240
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "a725ad24-6b90-4316-8e5c-2e2e455e9080",
+        "name": "Log and alert execution result",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          700,
+          120
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "TriMarketAlertRouter01"
+          },
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "When Risk Gate Approves Trade": {
+        "main": [
+          [
+            {
+              "node": "Validate execution request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate execution request": {
+        "main": [
+          [
+            {
+              "node": "Validation passed?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validation passed?": {
+        "main": [
+          [
+            {
+              "node": "Paper execution fill",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Log and alert execution result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Paper execution fill": {
+        "main": [
+          [
+            {
+              "node": "Log and alert execution result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Live API Placeholder": {
+        "main": [
+          [
+            {
+              "node": "Log and alert execution result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate"
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": {},
+    "tags": [],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]
